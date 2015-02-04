@@ -2,6 +2,8 @@
 var domify = require('domify');
 var dom = require('ampersand-dom');
 var matches = require('matches-selector');
+var Events = require('ampersand-events');
+var extend = require('amp-extend');
 
 //Replaceable with anything with label, message-container, message-text data-hooks and a <select>
 var defaultTemplate = [
@@ -70,6 +72,8 @@ function SelectView (opts) {
     this.setValue(opts.value);
 }
 
+extend(SelectView.prototype, Events);
+
 SelectView.prototype.render = function () {
     if (this.rendered) return;
 
@@ -127,14 +131,33 @@ SelectView.prototype.renderOptions = function () {
     this.select.innerHTML = '';
     if (this.unselectedText) {
         this.select.appendChild(
-            createOption(null, this.unselectedText)
+            this.createOption(null, this.unselectedText)
         );
     }
 
     this.options.forEach(function (option) {
-        this.select.appendChild(
-            createOption(this.getOptionValue(option), this.getOptionText(option))
-        );
+        var option;
+
+        if (Array.isArray(option))
+        {
+            option = this.createOption(option[0], option[1]);
+        }
+        else
+        {
+            if (this.options.isCollection) {
+                if (this.idAttribute && option[this.idAttribute]) {
+                    value = option[this.idAttribute];
+                }
+                
+                if (this.textAttribute && option[this.textAttribute]) {
+                    text = option[this.textAttribute];
+                }
+            }
+            
+            option = this.createOption(value, text, option);
+        }
+        
+        this.select.appendChild(option);
     }.bind(this));
 };
 
@@ -231,18 +254,6 @@ SelectView.prototype.validate = function () {
     return this.valid;
 };
 
-SelectView.prototype.getOptionValue = function (option) {
-    if (Array.isArray(option)) return option[0];
-
-    if (this.options.isCollection) {
-        if (this.idAttribute && option[this.idAttribute]) {
-            return option[this.idAttribute];
-        }
-    }
-
-    return option;
-};
-
 SelectView.prototype.setMessage = function (message) {
     var mContainer = this.el.querySelector('[data-hook~=message-container]');
     var mText = this.el.querySelector('[data-hook~=message-text]');
@@ -262,26 +273,22 @@ SelectView.prototype.setMessage = function (message) {
     }
 };
 
-SelectView.prototype.getOptionText = function (option) {
-    if (Array.isArray(option)) return option[1];
-
-    if (this.options.isCollection) {
-        if (this.textAttribute && option[this.textAttribute]) {
-            return option[this.textAttribute];
-        }
-    }
-
-    return option;
-};
-
-function createOption (value, text) {
+SelectView.prototype.createOption = function (value, text, model) {
     var node = document.createElement('option');
 
     //Set to empty-string if undefined or null, but not if 0, false, etc
     if (value === null || value === undefined) { value = ''; }
 
-    node.textContent = text;
+    node.innerHTML = text;
     node.value = value;
+
+    if(model)
+    {
+        this.listenTo(model, 'change:' + this.textAttribute, _.bind(_.partial(
+            function(model, element) {
+                node.innerHTML = model[this.textAttribute]; 
+            }, model, node), this));
+    }
 
     return node;
 }
