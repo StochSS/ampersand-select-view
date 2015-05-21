@@ -1,4 +1,5 @@
 /* $AMPERSAND_VERSION */
+var _ = require('underscore');
 var domify = require('domify');
 var dom = require('ampersand-dom');
 var matches = require('matches-selector');
